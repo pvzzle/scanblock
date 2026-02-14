@@ -1,10 +1,12 @@
 .PHONY: build run
 
-APP_BINARY_PATH=./bin/app
+BINARY_PATH=./bin/app
 
 build:
-	go build -buildvcs=false -o ${APP_BINARY_PATH} ./cmd/app
+	go build -buildvcs=false -o $(BINARY_PATH) ./cmd/app
 
 run: build
-	$(APP_BINARY_PATH)
+	$(BINARY_PATH)
 
+test:
+	go test -v ./...

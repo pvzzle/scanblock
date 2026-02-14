@@ -1,15 +1,21 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/pvzzle/scanblock/internal/app"
 )
 
-// Проталкиваем конфиги и запускаем апку тут. Мусорить запрещено!
 func main() {
-	err := app.Run()
-	if err != nil {
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
+	if err := app.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
 		log.Fatal(err)
 	}
 }

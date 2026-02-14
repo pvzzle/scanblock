@@ -1,0 +1,53 @@
+services:
+  postgres:
+    image: postgres:14.19-alpine
+    container_name: scanblock-db
+    environment:
+      POSTGRES_USER: scanblock
+      POSTGRES_DB: scanblock
+      POSTGRES_HOST_AUTH_METHOD: trust
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - scanblock_data:/var/lib/postgresql/data/pgdata
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scanblock -d scanblock"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    image: migrate/migrate:v4.17.1
+    container_name: scanblock-migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./migrations:/migrations:ro
+    command:
+      [
+        "-path",
+        "/migrations",
+        "-database",
+        "postgres://scanblock@postgres:5432/scanblock?sslmode=disable",
+        "up",
+      ]
+    restart: "no"
+
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: scanblock-app
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "8080:8080"
+    env_file: [.env]
+    environment:
+      PG_URL: postgres://scanblock@postgres:5432/scanblock?sslmode=disable
+
+volumes:
+  scanblock_data:
