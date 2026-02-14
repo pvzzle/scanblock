@@ -2,8 +2,9 @@
 
 BINARY_PATH=./bin/app
 
+# -buildvcs=false
 build:
-	go build -buildvcs=false -o $(BINARY_PATH) ./cmd/app
+	go build -o $(BINARY_PATH) ./cmd/app
 
 run: build
 	$(BINARY_PATH)

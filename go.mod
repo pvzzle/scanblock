@@ -2,6 +2,8 @@ module github.com/pvzzle/scanblock
 
 go 1.24.2
 
+require golang.org/x/time v0.14.0
+
 require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/ProjectZKM/Ziren/crates/go-runtime/zkvm_runtime v0.0.0-20251001021608-1fe7b43fc4d6 // indirect
