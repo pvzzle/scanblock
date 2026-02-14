@@ -1,27 +1,28 @@
 services:
-  postgres:
+  # --- existing: postgres/migrate/app ---
+
+  postgres_test:
     image: postgres:14.19-alpine
-    container_name: scanblock-db
+    container_name: scanblock-db-test
     environment:
       POSTGRES_USER: scanblock
-      POSTGRES_DB: scanblock
+      POSTGRES_DB: scanblock_test
       POSTGRES_HOST_AUTH_METHOD: trust
       PGDATA: /var/lib/postgresql/data/pgdata
-    ports:
-      - "5432:5432"
     volumes:
-      - scanblock_data:/var/lib/postgresql/data/pgdata
+      - scanblock_test_data:/var/lib/postgresql/data/pgdata
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U scanblock -d scanblock"]
+      test: ["CMD-SHELL", "pg_isready -U scanblock -d scanblock_test"]
       interval: 5s
       timeout: 3s
       retries: 20
+    profiles: ["test", "load"]
 
-  migrate:
+  migrate_test:
     image: migrate/migrate:v4.17.1
-    container_name: scanblock-migrate
+    container_name: scanblock-migrate-test
     depends_on:
-      postgres:
+      postgres_test:
         condition: service_healthy
     volumes:
       - ./migrations:/migrations:ro
@@ -30,24 +31,69 @@ services:
         "-path",
         "/migrations",
         "-database",
-        "postgres://scanblock@postgres:5432/scanblock?sslmode=disable",
+        "postgres://scanblock@postgres_test:5432/scanblock_test?sslmode=disable",
         "up",
       ]
     restart: "no"
+    profiles: ["test", "load"]
 
-  app:
+  unit-tests:
     build:
       context: .
       dockerfile: docker/Dockerfile
-    container_name: scanblock-app
+      target: test-unit
+    container_name: scanblock-unit-tests
     depends_on:
-      migrate:
+      migrate_test:
         condition: service_completed_successfully
-    ports:
-      - "8080:8080"
-    env_file: [.env]
     environment:
-      PG_URL: postgres://scanblock@postgres:5432/scanblock?sslmode=disable
+      TEST_PG_DSN: "postgres://scanblock@postgres_test:5432/scanblock_test?sslmode=disable"
+    profiles: ["test"]
+
+  integration-tests:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: test-integration
+    container_name: scanblock-integration-tests
+    depends_on:
+      migrate_test:
+        condition: service_completed_successfully
+    environment:
+      TEST_PG_DSN: "postgres://scanblock@postgres_test:5432/scanblock_test?sslmode=disable"
+    profiles: ["test"]
+
+  loadtest:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: loadtest
+    container_name: scanblock-loadtest
+    depends_on:
+      migrate_test:
+        condition: service_completed_successfully
+    environment:
+      TEST_PG_DSN: "postgres://scanblock@postgres_test:5432/scanblock_test?sslmode=disable"
+    # аргументы можно переопределять при запуске
+    command:
+      [
+        "-dsn",
+        "postgres://scanblock@postgres_test:5432/scanblock_test?sslmode=disable",
+        "-dur",
+        "60s",
+        "-avg-rps",
+        "300",
+        "-peak-rps",
+        "1500",
+        "-ramp",
+        "10s",
+        "-rw",
+        "15",
+        "-workers",
+        "64",
+      ]
+    profiles: ["load"]
 
 volumes:
   scanblock_data:
+  scanblock_test_data:
